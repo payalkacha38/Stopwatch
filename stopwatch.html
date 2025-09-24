@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic Stopwatch</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+  body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(-45deg, #011539, #001539, #122c5b, #dfeafe);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    color: #fff;
+  }
+
+  @keyframes gradientBG {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+  }
+
+  .stopwatch-container {
+    background: rgba(1, 97, 100, 0.8);
+    padding: 80px 70px;
+    border-radius: 25px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    width: 360px;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  }
+
+  /* Hover effect with colorful glow */
+  .stopwatch-container:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 50px rgba(243,156,18,0.8);
+    background: linear-gradient(135deg, #f3f363, #3b504c, #867145, #ec9d96);
+    background-size: 400% 400%;
+    animation: hoverGlow 3s ease infinite;
+  }
+
+  @keyframes hoverGlow {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin-top: 20px;
+    color: #04f4d4;
+    position:static;
+  }
+
+  .time {
+    font-size: 3rem;
+    margin: 30px 0;
+    letter-spacing: 2px;
+    position: relative;
+  }
+
+  .time.running span {
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%,50%,100% {opacity:1;}
+    25%,75% {opacity:0.3;}
+  }
+
+  .buttons {
+    margin-bottom: 20px;
+  }
+
+  button {
+    background: #f39c12;
+    border: none;
+    color: #000;
+    padding: 12px 25px;
+    margin: 5px;
+    border-radius: 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  }
+
+  button:hover {
+    transform: scale(1.1);
+    background: #fff;
+    color: #ea6308;
+  }
+
+  .laps {
+    text-align: left;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+  }
+
+  /* Lap animation */
+  .lap {
+    padding: 6px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    opacity: 0;
+    transform: translateX(-20px);
+    animation: lapFade 0.5s forwards;
+  }
+
+  @keyframes lapFade {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Alternating gradient colors for laps */
+  .lap:nth-child(odd) { background: linear-gradient(90deg, #f39c12, #ff6f61); color: #000; }
+  .lap:nth-child(even) { background: linear-gradient(90deg, #1efed1, #122c5b); color: #fff; }
+
+ .circle {
+  position: absolute;
+  top: 9%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 5px solid rgba(243,156,18,0.3); /* outline */
+  overflow: visible; /* allow rotation without clipping content */
+  z-index: 1;
+}
+
+  .circle-fill {
+    width: 100%; height: 100%;
+    clip: rect(0px, 140px, 140px, 70px);
+    position: absolute;
+  }
+
+  .circle-fill .fill {
+  background: rgba(243,156,18,0.5); /* semi-transparent so it doesn't block content */
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: absolute;
+  clip: rect(0px, 70px, 140px, 0px);
+  transform: rotate(0deg);
+  transform-origin: center center;
+  transition: transform 0.05s linear;
+  z-index: 0; /* behind the time text */
+}
+</style>
+</head>
+<body>
+
+<div class="stopwatch-container">
+  <h1>Stopwatch</h1>
+
+  <div class="circle">
+    <div class="circle-fill">
+      <div class="fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div class="time" id="time">00:00:00.<span>00</span></div>
+
+  <div class="buttons">
+    <button id="startPause">Start</button>
+    <button id="lap">Lap</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <div class="laps" id="laps"></div>
+</div>
+
+<audio id="lapSound" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+
+<script>
+let startTime = 0;
+let elapsedTime = 0;
+let timerInterval;
+let running = false;
+let lapCounter = 1;
+const timeDisplay = document.getElementById('time');
+const lapsContainer = document.getElementById('laps');
+const startPauseBtn = document.getElementById('startPause');
+const lapBtn = document.getElementById('lap');
+const resetBtn = document.getElementById('reset');
+const lapSound = document.getElementById('lapSound');
+const progressFill = document.getElementById('progressFill');
+
+function formatTime(time){
+  const ms = Math.floor((time % 1000)/10).toString().padStart(2,'0');
+  const s = Math.floor((time/1000)%60).toString().padStart(2,'0');
+  const m = Math.floor((time/(1000*60))%60).toString().padStart(2,'0');
+  const h = Math.floor(time/(1000*60*60)).toString().padStart(2,'0');
+  return `${h}:${m}:${s}.<span>${ms}</span>`;
+}
+
+function updateTime(){
+  elapsedTime = Date.now() - startTime;
+  timeDisplay.innerHTML = formatTime(elapsedTime);
+  const seconds = (elapsedTime/1000)%60;
+  const deg = (seconds/60)*360;
+  progressFill.style.transform = `rotate(${deg}deg)`;
+}
+
+startPauseBtn.addEventListener('click', ()=>{
+  if(!running){
+    startTime = Date.now() - elapsedTime;
+    timerInterval = setInterval(updateTime,10);
+    startPauseBtn.textContent = 'Pause';
+    timeDisplay.classList.add('running');
+    running = true;
+  } else {
+    clearInterval(timerInterval);
+    startPauseBtn.textContent = 'Start';
+    timeDisplay.classList.remove('running');
+    running = false;
+  }
+});
+
+lapBtn.addEventListener('click', ()=>{
+  if(running){
+    const lapTime = formatTime(elapsedTime).replace('<span>','').replace('</span>','');
+    const lapElement = document.createElement('div');
+    lapElement.className = 'lap';
+    lapElement.textContent = `Lap ${lapCounter++}: ${lapTime}`;
+    lapsContainer.prepend(lapElement);
+    lapSound.play();
+    lapsContainer.scrollTop = 0; // Auto-scroll to latest lap
+  }
+});
+
+const deg = (elapsedTime / 1000 % 60) * 6; // rotate 6deg per second
+progressFill.style.transform = `rotate(${deg}deg)`;
+
+
+resetBtn.addEventListener('click', ()=>{
+  clearInterval(timerInterval);
+  elapsedTime = 0;
+  lapCounter = 1;
+  running = false;
+  timeDisplay.innerHTML = '00:00:00.<span>00</span>';
+  startPauseBtn.textContent = 'Start';
+  timeDisplay.classList.remove('running');
+  lapsContainer.innerHTML = '';
+  progressFill.style.transform = 'rotate(0deg)';
+});
+
+// Keyboard Shortcuts
+document.addEventListener('keydown',(e)=>{
+  if(e.code==='Space') startPauseBtn.click();
+  if(e.code==='KeyL') lapBtn.click();
+  if(e.code==='KeyR') resetBtn.click();
+});
+</script>
+</body>
+</html>
